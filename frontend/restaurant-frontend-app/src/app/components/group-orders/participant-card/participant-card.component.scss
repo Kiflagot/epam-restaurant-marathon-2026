@@ -1,0 +1,163 @@
+@use 'app/shared/styles/abstracts/colors' as color;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  padding: 1.25rem;
+  box-sizing: border-box;
+  border: 1px solid color.$neutral-200;
+  border-radius: 1rem;
+  background: color.$neutral-0;
+  box-shadow: 0 0.25rem 1rem color.$shadow;
+}
+
+.title {
+  margin: 0;
+  color: color.$neutral-900;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.chip {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.submitted {
+  background: color.$green-100;
+  color: color.$green-800;
+}
+
+.pending {
+  background: color.$orange-100;
+  color: color.$orange-600;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.avatar {
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.initial {
+  display: grid;
+  place-items: center;
+  background: color.$green-100;
+  color: color.$green-600;
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.name,
+.qty,
+.price,
+.empty,
+.subtotal {
+  margin: 0;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  color: color.$neutral-900;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qty,
+.price {
+  color: color.$neutral-700;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
+.price {
+  color: color.$neutral-900;
+  font-weight: 600;
+}
+
+.empty {
+  margin-top: 1.25rem;
+  color: color.$neutral-600;
+  font-size: 0.875rem;
+}
+
+.subtotal {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid color.$neutral-200;
+  color: color.$neutral-900;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .card {
+    padding: 1rem;
+  }
+
+  .item {
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .name {
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .qty {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .price {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+  }
+}
