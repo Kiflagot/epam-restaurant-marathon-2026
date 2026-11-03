@@ -86,6 +86,33 @@ public class OrderService : IOrderService
         return await _orderRepository.GetOrderByReservationIdAsync(reservationId);
     }
 
+    public async Task SaveGroupOrderAsync(Order order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+
+        var reservation = await LoadReservationAsync(order.ReservationId);
+        var existingOrder = await _orderRepository.GetOrderByReservationIdAsync(order.ReservationId);
+
+        if (existingOrder is not null)
+        {
+            existingOrder.Dishes = order.Dishes;
+            existingOrder.Status = OrderStatus.SubmittedByCustomer;
+            await _orderRepository.SaveOrderAsync(existingOrder);
+            return;
+        }
+
+        order.Status = OrderStatus.SubmittedByCustomer;
+        await _orderRepository.SaveOrderAsync(order);
+
+        if (!string.IsNullOrEmpty(reservation.WaiterId))
+        {
+            await _notificationService.CreateOrderNotificationAsync(
+                reservation.WaiterId,
+                order.OrderId,
+                order.ReservationId);
+        }
+    }
+
     public async Task AddOrderAsync(Order order)
     {
         var reservation = await LoadReservationAsync(order.ReservationId);
