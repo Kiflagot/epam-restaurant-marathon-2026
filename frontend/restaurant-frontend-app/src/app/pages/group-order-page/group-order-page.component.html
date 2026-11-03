@@ -28,5 +28,6 @@
     }
     <footer class="order-summary"><p class="grand-total"><span>Grand Total</span><span>{{ consolidatedOrder().total | currency }}</span></p><button class="submit-button" type="button" [disabled]="submitDisabled()" (click)="openSubmitDialog()">Submit Pre-Order</button></footer>
   }
-  @if (submitDialogOpen()) { <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="submit-title"><h2 id="submit-title">Submit Pre-Order</h2><p>Group submission is not available in the current backend API.</p><button class="secondary-button" type="button" (click)="closeSubmitDialog()">Close</button></section> }
+  @if (submitSuccessMessage(); as message) { <p class="state-message success-state" role="status">{{ message }}</p> }
+  @if (submitDialogOpen()) { <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="submit-title"><h2 id="submit-title">Submit Pre-Order</h2><p>Submit all confirmed participant carts to the restaurant?</p>@if (submitErrorMessage(); as message) { <p class="error-text" role="alert">{{ message }}</p> }<button class="submit-button" type="button" [disabled]="submitting()" (click)="submit()">{{ submitting() ? 'Submitting…' : 'Confirm submission' }}</button><button class="secondary-button" type="button" [disabled]="submitting()" (click)="closeSubmitDialog()">Cancel</button></section> }
 </main>

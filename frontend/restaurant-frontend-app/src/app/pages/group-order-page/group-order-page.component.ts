@@ -2,7 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin, map, switchMap } from 'rxjs';
+import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ParticipantCardComponent } from '@app/components/group-orders/participant-card/participant-card.component';
 import { GuestInvite } from '@app/models/reservations/guest-invite.model';
 import { GroupReservationStatus } from '@app/models/group-orders/group-status.model';
@@ -29,6 +29,8 @@ export class GroupOrderPageComponent implements OnInit {
   readonly submitDialogOpen = signal(false);
   readonly submitting = signal(false);
   readonly submitted = signal(false);
+  readonly submitErrorMessage = signal<string | null>(null);
+  readonly submitSuccessMessage = signal<string | null>(null);
   readonly consolidatedOrder = computed(() => consolidatePreOrder(this.participants()));
   readonly unsubmittedCount = computed(() => this.participants().filter((person) => !person.isSubmitted).length);
   readonly hasUnsubmittedParticipants = computed(() => this.unsubmittedCount() > 0);
@@ -51,8 +53,58 @@ export class GroupOrderPageComponent implements OnInit {
     });
   }
 
-  openSubmitDialog(): void { if (!this.submitDisabled()) this.submitDialogOpen.set(true); }
+  openSubmitDialog(): void {
+    if (this.submitDisabled()) return;
+    this.submitErrorMessage.set(null);
+    this.submitDialogOpen.set(true);
+  }
+
+  submit(): void {
+    const currentInvite = this.invite();
+    if (this.submitDisabled() || !currentInvite) return;
+
+    this.submitting.set(true);
+    this.submitErrorMessage.set(null);
+    this.groupOrdersService.getStatus$(currentInvite.GroupReservationId).pipe(
+      switchMap((status) => {
+        this.groupStatus.set(status.status);
+
+        if (status.status === 'Submitted') {
+          this.submitted.set(true);
+          return of({ status: 'Submitted' as const, message: 'The group pre-order has already been submitted.' });
+        }
+
+        if (status.status === 'Closed') {
+          return of({ status: 'Closed' as const, message: 'The group pre-order is closed.' });
+        }
+
+        return this.groupOrdersService.submit$(currentInvite.GroupReservationId, this.reservationId).pipe(
+          map(() => ({ status: 'Submitted' as const, message: 'Group pre-order was sent to the restaurant.' })),
+        );
+      }),
+    ).subscribe({
+      next: (result) => {
+        this.submitting.set(false);
+        this.submitDialogOpen.set(false);
+        this.groupStatus.set(result.status);
+        this.submitted.set(result.status === 'Submitted');
+        this.submitSuccessMessage.set(result.message);
+      },
+      error: (error: unknown) => {
+        this.submitting.set(false);
+        this.submitErrorMessage.set(this.getSubmitErrorMessage(error));
+      },
+    });
+  }
+
   closeSubmitDialog(): void { if (!this.submitting()) this.submitDialogOpen.set(false); }
 
   private setLoadError(error: unknown): void { this.loading.set(false); this.errorMessage.set(error instanceof HttpErrorResponse && error.status === 404 ? 'Group reservation not found' : 'Unable to load group reservation'); }
+
+  private getSubmitErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 400) return error.error?.error ?? 'Unable to submit group pre-order.';
+    if (error instanceof HttpErrorResponse && error.status === 403) return 'Only the reservation owner can submit this pre-order.';
+    if (error instanceof HttpErrorResponse && error.status === 401) return 'Please log in to submit the group pre-order.';
+    return 'Unable to submit group pre-order. Please try again.';
+  }
 }
