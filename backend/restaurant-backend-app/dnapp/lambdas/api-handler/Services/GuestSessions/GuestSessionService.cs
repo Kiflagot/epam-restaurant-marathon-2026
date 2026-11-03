@@ -406,6 +406,25 @@ public class GuestSessionService(
         return new GetGuestSessionResponse(name, items, total, session.IsSubmitted);
     }
 
+    public async Task<GetOwnerGuestSessionIdResponse> GetOwnerGuestSessionIdAsync(string reservationId, string userId)
+    {
+        Reservation reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
+            ?? throw new ReservationNotFoundException($"Reservation with id '{reservationId}' was not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can perform this action.");
+
+        GroupReservation groupReservation = await groupReservationRepository.GetByReservationIdAsync(reservationId)
+            ?? throw new GuestSessionNotFoundException("Owner guest session was not found.");
+
+        GuestSession? ownerSession = (await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservation.GroupReservationId))
+            .FirstOrDefault(session => session.IsOwnerSession);
+
+        return ownerSession is null
+            ? throw new GuestSessionNotFoundException("Owner guest session was not found.")
+            : new GetOwnerGuestSessionIdResponse(ownerSession.Id);
+    }
+
 }
 
 

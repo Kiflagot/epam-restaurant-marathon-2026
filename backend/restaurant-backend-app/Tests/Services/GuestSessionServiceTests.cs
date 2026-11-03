@@ -769,6 +769,102 @@ public class GuestSessionServiceTests
         Assert.False(participants[1].IsSubmitted);
     }
 
+    [Fact]
+    public async Task GetOwnerGuestSessionIdAsync_OwnerReservation_ReturnsOwnerSessionId()
+    {
+        const string reservationId = "reservation-id";
+        const string userId = "owner-user-id";
+        const string groupReservationId = "group-reservation-id";
+        const string ownerSessionId = "owner-session-id";
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync(reservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = reservationId,
+                CustomerId = userId,
+                TableId = "table-id",
+                WaiterId = "waiter-id"
+            });
+        _mockGroupReservationRepository
+            .Setup(r => r.GetByReservationIdAsync(reservationId))
+            .ReturnsAsync(new GroupReservation
+            {
+                GroupReservationId = groupReservationId,
+                ReservationId = reservationId,
+                ReservationToken = "token"
+            });
+        _mockGuestSessionRepository
+            .Setup(r => r.GetAllByGroupReservationIdAsync(groupReservationId))
+            .ReturnsAsync([
+                new GuestSession { Id = "guest-session-id", GuestName = "Guest", Dishes = [] },
+                new GuestSession { Id = ownerSessionId, GuestName = "Owner", Dishes = [], IsOwnerSession = true }
+            ]);
+
+        var result = await _guestSessionService.GetOwnerGuestSessionIdAsync(reservationId, userId);
+
+        Assert.Equal(ownerSessionId, result.GuestSessionId);
+    }
+
+    [Fact]
+    public async Task GetOwnerGuestSessionIdAsync_MissingReservation_ThrowsReservationNotFoundException()
+    {
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync("missing-reservation"))
+            .ReturnsAsync((Reservation?)null);
+
+        await Assert.ThrowsAsync<ReservationNotFoundException>(() =>
+            _guestSessionService.GetOwnerGuestSessionIdAsync("missing-reservation", "owner-user-id"));
+    }
+
+    [Fact]
+    public async Task GetOwnerGuestSessionIdAsync_NonOwner_ThrowsActionForbiddenException()
+    {
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync("reservation-id"))
+            .ReturnsAsync(new Reservation
+            {
+                Id = "reservation-id",
+                CustomerId = "actual-owner-id",
+                TableId = "table-id",
+                WaiterId = "waiter-id"
+            });
+
+        await Assert.ThrowsAsync<ActionForbiddenException>(() =>
+            _guestSessionService.GetOwnerGuestSessionIdAsync("reservation-id", "another-user-id"));
+    }
+
+    [Fact]
+    public async Task GetOwnerGuestSessionIdAsync_MissingOwnerSession_ThrowsGuestSessionNotFoundException()
+    {
+        const string reservationId = "reservation-id";
+        const string userId = "owner-user-id";
+
+        _mockReservationRepository
+            .Setup(r => r.GetReservationByIdAsync(reservationId))
+            .ReturnsAsync(new Reservation
+            {
+                Id = reservationId,
+                CustomerId = userId,
+                TableId = "table-id",
+                WaiterId = "waiter-id"
+            });
+        _mockGroupReservationRepository
+            .Setup(r => r.GetByReservationIdAsync(reservationId))
+            .ReturnsAsync(new GroupReservation
+            {
+                GroupReservationId = "group-reservation-id",
+                ReservationId = reservationId,
+                ReservationToken = "token"
+            });
+        _mockGuestSessionRepository
+            .Setup(r => r.GetAllByGroupReservationIdAsync("group-reservation-id"))
+            .ReturnsAsync([]);
+
+        await Assert.ThrowsAsync<GuestSessionNotFoundException>(() =>
+            _guestSessionService.GetOwnerGuestSessionIdAsync(reservationId, userId));
+    }
+
     public static TheoryData<IEnumerable<string>, IEnumerable<Dish>, List<OrderItem>, decimal> PepareDishesForGuestSession()
     {
         var dishMap = new Dictionary<string, Dish>()
