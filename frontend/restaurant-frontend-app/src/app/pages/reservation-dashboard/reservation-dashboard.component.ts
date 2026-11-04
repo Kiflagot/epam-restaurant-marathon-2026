@@ -38,6 +38,7 @@ import { PreOrdersService } from '@app/services/pre-orders/pre-orders.service';
 import { ReservationService } from '@app/services/reservation/reservation.service';
 import { TableService } from '@app/services/table/table.service';
 import { Roles } from '@app/shared/constants/roles';
+import { HIDDEN_RESERVATION_IDS } from '@app/shared/constants/hidden-reservation-ids';
 import { HeaderComponent } from '@app/shared/custom-components/header/header.component';
 import {
   formatTime,
@@ -539,7 +540,9 @@ export class ReservationDashboardComponent implements OnInit {
       )
       .subscribe({
         next: (reservations) => {
-          this.reservations.set(reservations);
+          this.reservations.set(
+            reservations.filter(({ id }) => !HIDDEN_RESERVATION_IDS.has(id)),
+          );
         },
         error: (error) => {
           console.error(
