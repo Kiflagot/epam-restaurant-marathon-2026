@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
 import { Order } from '@app/models/orders/order.model';
 import { DishListResponse } from '@app/models/dishes/dish-list-response.model';
-import { catchError, map, switchMap, throwError } from 'rxjs';
+import { catchError, concatMap, finalize, forkJoin, from, map, switchMap, throwError, toArray, of, Observable, shareReplay } from 'rxjs';
 import { CreateOrderRequest } from '@app/models/cart/create-order-request.model';
 import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
 
@@ -15,9 +15,34 @@ export class PreOrdersService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly http = inject(HttpClient);
   private readonly groupOrdersService = inject(GroupOrdersService);
+  private activePreOrdersLoad$: Observable<Order[]> | null = null;
 
-  getPreOrders() {
-    return this.http.get<Order[]>(`${this.baseUrl}/orders`);
+  getPreOrders(): Observable<Order[]> {
+    if (this.activePreOrdersLoad$) {
+      return this.activePreOrdersLoad$;
+    }
+
+    this.activePreOrdersLoad$ = forkJoin({
+      orders: this.http.get<Order[]>(`${this.baseUrl}/orders`),
+      reservations: this.http.get<Array<{ id: string }>>(`${this.baseUrl}/reservations`),
+    }).pipe(
+      switchMap(({ orders, reservations }) => from(reservations).pipe(
+        concatMap((reservation) => this.groupOrdersService.getOwnerCartOrder$(reservation.id).pipe(
+          catchError(() => of(null)),
+        )),
+        toArray(),
+        map((groupOrders) => [
+          ...orders,
+          ...groupOrders.filter((order): order is Order => order !== null && !orders.some((item) => item.reservationId === order.reservationId)),
+        ]),
+      )),
+      finalize(() => {
+        this.activePreOrdersLoad$ = null;
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+
+    return this.activePreOrdersLoad$;
   }
 
   getByReservationId(reservationId: string) {
@@ -31,7 +56,7 @@ export class PreOrdersService {
   ) {
     return this.groupOrdersService.getOwnerGroupReservation$(reservationId).pipe(
       switchMap(() => this.groupOrdersService.addOwnerDish$(reservationId, dish.id, quantity)),
-      catchError((error: HttpErrorResponse) => error.status === 404
+      catchError((error: HttpErrorResponse) => this.isGroupReservationNotFound(error)
         ? this.addDishToRegularPreOrder(reservationId, dish, quantity)
         : throwError(() => error)),
     );
@@ -102,8 +127,8 @@ export class PreOrdersService {
       switchMap(() => delta > 0
         ? this.groupOrdersService.addOwnerDish$(reservationId, dishId, delta)
         : this.groupOrdersService.removeOwnerDish$(reservationId, dishId, -delta)),
-      catchError((error: HttpErrorResponse) => error.status === 404
-        ? throwError(() => error)
+      catchError((error: HttpErrorResponse) => this.isGroupReservationNotFound(error)
+        ? this.updateRegularDishQuantity$(reservationId, dishId, quantity)
         : throwError(() => error)),
     );
   }
@@ -111,9 +136,38 @@ export class PreOrdersService {
   removeDishFromPreOrderByReservationId$(reservationId: string, dishId: string, quantity: number) {
     return this.groupOrdersService.getOwnerGroupReservation$(reservationId).pipe(
       switchMap(() => this.groupOrdersService.removeOwnerDish$(reservationId, dishId, quantity)),
-      catchError((error: HttpErrorResponse) => error.status === 404
-        ? throwError(() => error)
+      catchError((error: HttpErrorResponse) => this.isGroupReservationNotFound(error)
+        ? this.removeRegularDish$(reservationId, dishId)
         : throwError(() => error)),
+    );
+  }
+
+  private updateRegularDishQuantity$(reservationId: string, dishId: string, quantity: number) {
+    return this.getPreOrders().pipe(
+      switchMap((orders) => {
+        const order = orders.find((item) => item.reservationId === reservationId);
+        if (!order) return throwError(() => new Error('Pre-order not found.'));
+
+        const updatedOrder = {
+          ...order,
+          orderItems: order.orderItems.map((item) => item.dish.id === dishId ? { ...item, quantity } : item),
+        };
+        return this.editPreOrderByReservationId(reservationId, updatedOrder);
+      }),
+    );
+  }
+
+  private removeRegularDish$(reservationId: string, dishId: string) {
+    return this.getPreOrders().pipe(
+      switchMap((orders) => {
+        const order = orders.find((item) => item.reservationId === reservationId);
+        if (!order) return throwError(() => new Error('Pre-order not found.'));
+
+        return this.editPreOrderByReservationId(reservationId, {
+          ...order,
+          orderItems: order.orderItems.filter((item) => item.dish.id !== dishId),
+        });
+      }),
     );
   }
 
@@ -124,7 +178,7 @@ export class PreOrdersService {
   submitPreOrderByReservationId(reservationId: string) {
     return this.groupOrdersService.getOwnerGroupReservation$(reservationId).pipe(
       switchMap(() => this.groupOrdersService.submitOwner$(reservationId)),
-      catchError((error: HttpErrorResponse) => error.status === 404
+      catchError((error: HttpErrorResponse) => this.isGroupReservationNotFound(error)
         ? this.http.post(`${this.baseUrl}/orders/${reservationId}/submit`, {})
         : throwError(() => error)),
     );
@@ -146,5 +200,9 @@ export class PreOrdersService {
       `${this.baseUrl}/reservations/${reservationId}/order/cancellations/${dishId}`,
       {}
     );
+  }
+
+  private isGroupReservationNotFound(error: HttpErrorResponse): boolean {
+    return error.status === 404;
   }
 }

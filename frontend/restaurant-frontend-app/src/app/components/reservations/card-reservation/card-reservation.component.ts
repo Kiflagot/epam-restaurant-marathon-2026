@@ -136,6 +136,14 @@ export class CardReservationComponent {
     );
   });
 
+  onGroupPreOrder(): void {
+    void this.router.navigate([
+      '/reservations',
+      this.r().id,
+      'group-order',
+    ]);
+  }
+
   readonly isAnonymous = computed(() => {
     return !this.r().customerId;
   });

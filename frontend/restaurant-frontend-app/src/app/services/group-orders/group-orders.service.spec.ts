@@ -44,4 +44,36 @@ describe('GroupOrdersService owner loading', () => {
     expect(request.request.method).toBe('POST');
     request.flush({});
   });
+
+  it('maps the owner participant to a Cart order', () => {
+    let result: unknown;
+    service.getOwnerCartOrder$('res-1').subscribe((order) => (result = order));
+
+    http.expectOne(`${baseUrl}/reservations/res-1/group-reservation`).flush({
+      GroupReservationId: 'group-1',
+      Status: 'Open',
+    });
+    http.expectOne(`${baseUrl}/reservations/res-1`).flush({
+      id: 'res-1',
+      locationAddress: 'Address',
+      startTime: '2026-01-01T12:00:00Z',
+    });
+    http.expectOne(`${baseUrl}/guest/groups/group-1/sessions`).flush({
+      Participants: [{
+        Id: 'owner-session',
+        Type: 'Owner',
+        Name: 'Owner',
+        Items: [{ dish: { id: 'dish-1', name: 'Dish', price: 10 }, quantity: 2 }],
+        Total: 20,
+        IsSubmitted: false,
+      }],
+      Total: 20,
+    });
+
+    expect(result).toEqual(jasmine.objectContaining({
+      reservationId: 'res-1',
+      status: 0,
+      orderItems: [jasmine.objectContaining({ quantity: 2 })],
+    }));
+  });
 });

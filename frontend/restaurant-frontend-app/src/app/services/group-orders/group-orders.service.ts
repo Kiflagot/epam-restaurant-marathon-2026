@@ -1,6 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable, map, switchMap } from 'rxjs';
+import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
+import { Order } from '@app/models/orders/order.model';
+import { DishListResponse } from '@app/models/dishes/dish-list-response.model';
 import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-response.model';
 import { GroupStatusResponse } from '@app/models/group-orders/group-status.model';
 import { SubmittedDish, SubmitGroupPreOrderRequest } from '@app/models/group-orders/submit-group-pre-order.model';
@@ -53,6 +55,51 @@ interface BackendGroupStatusResponse {
 export class GroupOrdersService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly http = inject(HttpClient);
+
+  getOwnerCartOrder$(reservationId: string): Observable<Order | null> {
+    return this.getOwnerGroupReservation$(reservationId).pipe(
+      switchMap((groupReservation) => forkJoin({
+        reservation: this.getOwnerReservation$(reservationId),
+        sessions: this.getSessions$(groupReservation.groupReservationId),
+      }).pipe(
+        map(({ reservation, sessions }) => {
+          const owner = sessions.participants.find((participant) => participant.type === 'Owner');
+          if (!owner || !owner.items.length) return null;
+
+          return {
+            orderId: `group-${groupReservation.groupReservationId}`,
+            reservationAddress: reservation.locationAddress,
+            reservationTime: reservation.startTime,
+            reservationId,
+            orderItems: owner.items.map((item) => ({
+              dish: this.toCartDish(item.dish),
+              quantity: item.quantity,
+              state: 0,
+            })),
+            status: owner.isSubmitted ? 3 : 0,
+          } satisfies Order;
+        }),
+      )),
+    );
+  }
+
+  private toCartDish(dish: Participant['items'][number]['dish']): DishListResponse {
+    return {
+      id: dish.id,
+      name: dish.name,
+      price: dish.price,
+      imageUrl: dish.imageUrl ?? '',
+      state: 'Available',
+      weight: dish.weight ?? '',
+      dishType: '',
+      description: '',
+      calories: '',
+      proteins: '',
+      carbohydrates: '',
+      fats: '',
+      vitamins: '',
+    };
+  }
 
   addOwnerDish$(reservationId: string, dishId: string, quantity: number) {
     return this.http.post(
