@@ -16,6 +16,11 @@ export interface OwnerGroupReservationResponse {
   status: GroupStatusResponse['status'];
 }
 
+interface BackendOwnerGroupReservationResponse {
+  GroupReservationId: string;
+  Status: GroupStatusResponse['status'];
+}
+
 export interface OwnerReservationResponse {
   id: string;
   startTime: string;
@@ -49,9 +54,36 @@ export class GroupOrdersService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly http = inject(HttpClient);
 
+  addOwnerDish$(reservationId: string, dishId: string, quantity: number) {
+    return this.http.post(
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/group-session/dishes`,
+      { dishId, quantity },
+    );
+  }
+
+  removeOwnerDish$(reservationId: string, dishId: string, quantity: number) {
+    return this.http.request(
+      'DELETE',
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/group-session/dishes`,
+      { body: { dishId, quantity } },
+    );
+  }
+
+  submitOwner$(reservationId: string) {
+    return this.http.post(
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/group-session/submit`,
+      {},
+    );
+  }
+
   getOwnerGroupReservation$(reservationId: string): Observable<OwnerGroupReservationResponse> {
-    return this.http.get<OwnerGroupReservationResponse>(
+    return this.http.get<BackendOwnerGroupReservationResponse>(
       `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/group-reservation`,
+    ).pipe(
+      map((response) => ({
+        groupReservationId: response.GroupReservationId,
+        status: response.Status,
+      })),
     );
   }
 

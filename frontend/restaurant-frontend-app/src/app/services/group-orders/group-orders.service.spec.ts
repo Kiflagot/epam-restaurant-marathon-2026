@@ -20,10 +20,28 @@ describe('GroupOrdersService owner loading', () => {
   afterEach(() => http.verify());
 
   it('loads owner group metadata without guest invite endpoints', () => {
-    service.getOwnerGroupReservation$('res-1').subscribe();
+    let result: unknown;
+    service.getOwnerGroupReservation$('res-1').subscribe((response) => (result = response));
 
     const request = http.expectOne(`${baseUrl}/reservations/res-1/group-reservation`);
     expect(request.request.method).toBe('GET');
-    request.flush({ groupReservationId: 'group-1', status: 'Submitted' });
+    request.flush({ GroupReservationId: 'group-1', Status: 'Submitted' });
+
+    expect(result).toEqual({ groupReservationId: 'group-1', status: 'Submitted' });
+  });
+
+  it('adds a dish to the owner group session', () => {
+    service.addOwnerDish$('res-1', 'dish-1', 2).subscribe();
+    const request = http.expectOne(`${baseUrl}/reservations/res-1/group-session/dishes`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ dishId: 'dish-1', quantity: 2 });
+    request.flush({});
+  });
+
+  it('submits the owner group session', () => {
+    service.submitOwner$('res-1').subscribe();
+    const request = http.expectOne(`${baseUrl}/reservations/res-1/group-session/submit`);
+    expect(request.request.method).toBe('POST');
+    request.flush({});
   });
 });
