@@ -119,10 +119,15 @@ public class GroupReservationServiceTests
 
     [Theory]
     [AutoData]
-    public async Task GetGroupReservationByTokenAsync_WhenGuestCountIsMax_ThrowsGuestLimitExceeded(GroupReservation groupReservation, Reservation reservation)
+    public async Task GetGroupReservationByTokenAsync_WhenGuestCountIsMax_ReturnsGroupReservationInfo(
+        GroupReservation groupReservation,
+        Reservation reservation,
+        Table table)
     {
         groupReservation.Status = GroupReservationStatus.Open;
         groupReservation.ReservationId = reservation.Id;
+        reservation.TableId = table.Id;
+        reservation.CustomerId = null;
 
         _groupReservationRepositoryMock
             .Setup(r => r.GetGroupReservationByTokenAsync(groupReservation.ReservationToken))
@@ -132,11 +137,16 @@ public class GroupReservationServiceTests
             .Setup(r => r.GetReservationByIdAsync(reservation.Id))
             .ReturnsAsync(reservation);
 
-        _guestSessionRepositoryMock
-            .Setup(r => r.CountByGroupReservationId(groupReservation.GroupReservationId))
-            .ReturnsAsync(reservation.GuestCount);
+        _tableRepositoryMock
+            .Setup(r => r.GetTableAsync(table.Id))
+            .ReturnsAsync(table);
 
-        await Assert.ThrowsAsync<GuestLimitExceededException>(() => _service.GetGroupReservationByTokenAsync(groupReservation.ReservationToken));
+        var result = await _service.GetGroupReservationByTokenAsync(groupReservation.ReservationToken);
+
+        Assert.Equal(reservation.GuestCount, result.MaxGuestCount);
+        _guestSessionRepositoryMock.Verify(
+            r => r.CountByGroupReservationId(groupReservation.GroupReservationId),
+            Times.Never);
     }
 
     [Theory]
