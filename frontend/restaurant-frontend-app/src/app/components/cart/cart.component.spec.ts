@@ -24,6 +24,8 @@ describe('CartComponent', () => {
           'unsubmitPreOrderByReservationId',
           'submitPreOrderByReservationId',
           'editPreOrderByReservationId',
+          'updateDishQuantityByReservationId$',
+          'removeDishFromPreOrderByReservationId$',
         ],
       );
 

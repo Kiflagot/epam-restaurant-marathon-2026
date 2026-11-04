@@ -17,6 +17,7 @@ using APIHandler.Services.Waiters;
 using APIHandler.Models.WaiterList;
 using APIHandler.Exceptions;
 using APIHandler.Services.GroupReservations;
+using APIHandler.Services.GuestSessions;
 
 namespace APIHandler.Tests.Services;
 
@@ -30,6 +31,7 @@ public class ReservationServiceTests
     private readonly Mock<IOrderService> _mockOrderService = new();
     private readonly Mock<ILambdaLogger> _mockLogger = new();
     private readonly Mock<IGroupReservationService> _mockGroupReservationService = new();
+    private readonly Mock<IGuestSessionService> _mockGuestSessionService = new();
 
     private readonly ReservationService _reservationService;
 
@@ -42,8 +44,18 @@ public class ReservationServiceTests
             _mockWaiterService.Object,
             _mockLocationService.Object,
             _mockOrderService.Object,
-            _mockGroupReservationService.Object
+            _mockGroupReservationService.Object,
+            _mockGuestSessionService.Object
         );
+
+        _mockGroupReservationService
+            .Setup(r => r.CreateGroupReservationAsync(It.IsAny<string>()))
+            .ReturnsAsync(new GroupReservation
+            {
+                GroupReservationId = "group-reservation-id",
+                ReservationId = "reservation-id",
+                ReservationToken = "reservation-token"
+            });
     }
 
     [Theory, AutoData]
@@ -186,10 +198,23 @@ public class ReservationServiceTests
             .Setup(r => r.GetTableByIdAsync(request.TableId))
             .ReturnsAsync(table);
 
+        var groupReservation = new GroupReservation
+        {
+            GroupReservationId = "group-reservation-id",
+            ReservationId = "reservation-id",
+            ReservationToken = "reservation-token"
+        };
+        _mockGroupReservationService
+            .Setup(r => r.CreateGroupReservationAsync(It.IsAny<string>()))
+            .ReturnsAsync(groupReservation);
+
         // Act
         var result = await _reservationService.CreateReservationAsync(request, callerId, isWaiter: false, _mockLogger.Object);
 
         _mockGroupReservationService.Verify(r => r.CreateGroupReservationAsync(It.IsAny<string>()));
+        _mockGuestSessionService.Verify(
+            s => s.CreateGroupOwnerSessionAsync(callerId, groupReservation.GroupReservationId),
+            Times.Once);
     }
 
     [Theory, AutoData]

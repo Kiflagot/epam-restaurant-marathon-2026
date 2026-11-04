@@ -210,9 +210,11 @@ export class CartComponent implements OnInit {
     };
 
     this.preOrdersService
-      .editPreOrderByReservationId(
+      .updateDishQuantityByReservationId$(
         updatedOrder.reservationId,
-        updatedOrder,
+        itemId,
+        originalOrder.orderItems.find((item) => item.dish.id === itemId)?.quantity ?? 0,
+        quantity,
       )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -238,18 +240,8 @@ export class CartComponent implements OnInit {
       return;
     }
 
-    const updatedOrder: Order = {
-      ...originalOrder,
-      orderItems: originalOrder.orderItems.filter(
-        (item) => item.dish.id !== itemId,
-      ),
-    };
-
     this.preOrdersService
-      .editPreOrderByReservationId(
-        updatedOrder.reservationId,
-        updatedOrder,
-      )
+      .removeDishFromPreOrderByReservationId$(originalOrder.reservationId, itemId, originalOrder.orderItems.find((item) => item.dish.id === itemId)?.quantity ?? 0)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {

@@ -13,7 +13,13 @@ public interface IGuestSessionService
     Task<bool> IsAuthorizedAsync(string guestSessionToken, string guestSessionId);
     Task SubmitCartAsync(string guestSessionId);
     Task<GuestMenuResponse> GetGuestMenuAsync(string guestSessionId);
+    Task<GetAllSessionsResponse> GetAllSessionsAsync(string userId, string groupReservationId);
     Task<GetAllSessionsResponse> DeleteGuestSessionAsync(string userId, string groupReservationId, string guestSessionId);
     Task<GetGuestSessionResponse> GetGuestSessionInfoAsync(string guestSessionId);
+    Task<GetOwnerGuestSessionIdResponse> GetOwnerGuestSessionIdAsync(string reservationId, string userId);
+    Task AddDishToOwnerSessionAsync(string reservationId, string userId, string dishId, int quantity);
+    Task RemoveDishFromOwnerSessionAsync(string reservationId, string userId, string dishId, int quantity);
+    Task SubmitOwnerSessionAsync(string reservationId, string userId);
+    Task CreateGroupOwnerSessionAsync(string userId, string groupReservationId);
 }
 
