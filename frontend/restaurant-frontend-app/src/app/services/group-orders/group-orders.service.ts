@@ -1,8 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, map, switchMap } from 'rxjs';
-import { GuestInviteService } from '@app/services/reservation/guest-invite.service';
-import { GuestInvite } from '@app/models/reservations/guest-invite.model';
 import { GroupSessionsResponse } from '@app/models/group-orders/group-sessions-response.model';
 import { GroupStatusResponse } from '@app/models/group-orders/group-status.model';
 import { SubmittedDish, SubmitGroupPreOrderRequest } from '@app/models/group-orders/submit-group-pre-order.model';
@@ -11,6 +9,19 @@ import { API_BASE_URL } from '@app/shared/config/api-base-url.token';
 
 interface GuestSessionIdResponse {
   guestSessionId: string;
+}
+
+export interface OwnerGroupReservationResponse {
+  groupReservationId: string;
+  status: GroupStatusResponse['status'];
+}
+
+export interface OwnerReservationResponse {
+  id: string;
+  startTime: string;
+  endTime: string;
+  guestCount: number;
+  locationAddress: string;
 }
 
 interface BackendGroupSessionsResponse {
@@ -28,20 +39,25 @@ interface BackendParticipant {
 }
 
 interface BackendGroupStatusResponse {
-  CurrentParticipants: number;
-  MaxCapacity: number;
-  Status: GroupStatusResponse['status'];
+  currentParticipants: number;
+  maxCapacity: number;
+  status: GroupStatusResponse['status'];
 }
 
 @Injectable({ providedIn: 'root' })
 export class GroupOrdersService {
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly http = inject(HttpClient);
-  private readonly guestInviteService = inject(GuestInviteService);
 
-  getGroupInvite$(reservationId: string): Observable<GuestInvite> {
-    return this.guestInviteService.getInviteToken$(reservationId).pipe(
-      switchMap(({ token }) => this.guestInviteService.getInvite$(token)),
+  getOwnerGroupReservation$(reservationId: string): Observable<OwnerGroupReservationResponse> {
+    return this.http.get<OwnerGroupReservationResponse>(
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}/group-reservation`,
+    );
+  }
+
+  getOwnerReservation$(reservationId: string): Observable<OwnerReservationResponse> {
+    return this.http.get<OwnerReservationResponse>(
+      `${this.baseUrl}/reservations/${encodeURIComponent(reservationId)}`,
     );
   }
 
@@ -76,9 +92,9 @@ export class GroupOrdersService {
       `${this.baseUrl}/guest/groups/${encodeURIComponent(groupReservationId)}/status`,
     ).pipe(
       map((response) => ({
-        currentParticipants: response.CurrentParticipants,
-        maxCapacity: response.MaxCapacity,
-        status: response.Status,
+        currentParticipants: response.currentParticipants,
+        maxCapacity: response.maxCapacity,
+        status: response.status,
       })),
     );
   }

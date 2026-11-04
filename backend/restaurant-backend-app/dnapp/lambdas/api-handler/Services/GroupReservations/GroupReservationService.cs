@@ -66,6 +66,20 @@ public class GroupReservationService(
             inviterName);
     }
 
+    public async Task<GetOwnerGroupReservationResponse> GetOwnerGroupReservationAsync(string reservationId, string userId)
+    {
+        Reservation reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
+            ?? throw new ReservationNotFoundException($"Reservation {reservationId} was not found.");
+
+        if (reservation.CustomerId != userId)
+            throw new ActionForbiddenException("Only the reservation owner can view this group reservation.");
+
+        GroupReservation groupReservation = await groupReservationRepository.GetByReservationIdAsync(reservationId)
+            ?? throw new GroupReservationNotFoundException();
+
+        return new GetOwnerGroupReservationResponse(groupReservation.GroupReservationId, groupReservation.Status.ToString());
+    }
+
     public async Task<GroupReservation> GetGroupReservationAsync(string groupReservationId)
     {
         GroupReservation? groupReservation = await groupReservationRepository.GetGroupReservationByIdAsync(groupReservationId);

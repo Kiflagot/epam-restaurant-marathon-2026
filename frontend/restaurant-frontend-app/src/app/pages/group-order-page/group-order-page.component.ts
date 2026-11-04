@@ -4,10 +4,9 @@ import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } 
 import { ActivatedRoute } from '@angular/router';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ParticipantCardComponent } from '@app/components/group-orders/participant-card/participant-card.component';
-import { GuestInvite } from '@app/models/reservations/guest-invite.model';
 import { GroupReservationStatus } from '@app/models/group-orders/group-status.model';
 import { Participant } from '@app/models/group-orders/participant.model';
-import { GroupOrdersService } from '@app/services/group-orders/group-orders.service';
+import { GroupOrdersService, OwnerGroupReservationResponse, OwnerReservationResponse } from '@app/services/group-orders/group-orders.service';
 import { consolidatePreOrder } from '@app/shared/helpers/consolidate-pre-order';
 
 @Component({
@@ -20,7 +19,7 @@ import { consolidatePreOrder } from '@app/shared/helpers/consolidate-pre-order';
 export class GroupOrderPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly groupOrdersService = inject(GroupOrdersService);
-  readonly invite = signal<GuestInvite | null>(null);
+  readonly invite = signal<(OwnerGroupReservationResponse & OwnerReservationResponse) | null>(null);
   readonly participants = signal<Participant[]>([]);
   readonly ownerSessionId = signal('');
   readonly groupStatus = signal<GroupReservationStatus>('Open');
@@ -45,10 +44,10 @@ export class GroupOrderPageComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
     if (!this.reservationId) { this.setLoadError(new HttpErrorResponse({ status: 404 })); return; }
-    this.groupOrdersService.getGroupInvite$(this.reservationId).pipe(
-      switchMap((invite) => forkJoin({ sessions: this.groupOrdersService.getSessions$(invite.GroupReservationId), ownerSessionId: this.groupOrdersService.getOwnerSessionId$(this.reservationId), status: this.groupOrdersService.getStatus$(invite.GroupReservationId) }).pipe(map((result) => ({ invite, ...result })))),
+    this.groupOrdersService.getOwnerGroupReservation$(this.reservationId).pipe(
+      switchMap((groupReservation) => forkJoin({ reservation: this.groupOrdersService.getOwnerReservation$(this.reservationId), sessions: this.groupOrdersService.getSessions$(groupReservation.groupReservationId), ownerSessionId: this.groupOrdersService.getOwnerSessionId$(this.reservationId), status: this.groupOrdersService.getStatus$(groupReservation.groupReservationId) }).pipe(map((result) => ({ groupReservation, ...result })))),
     ).subscribe({
-      next: ({ invite, sessions, ownerSessionId, status }) => { this.invite.set(invite); this.participants.set(sessions.participants); this.ownerSessionId.set(ownerSessionId); this.groupStatus.set(status.status); this.submitted.set(status.status === 'Submitted'); this.loading.set(false); },
+      next: ({ groupReservation, reservation, sessions, ownerSessionId, status }) => { this.invite.set({ ...groupReservation, ...reservation }); this.participants.set(sessions.participants); this.ownerSessionId.set(ownerSessionId); this.groupStatus.set(status.status); this.submitted.set(status.status === 'Submitted'); this.loading.set(false); },
       error: (error: unknown) => this.setLoadError(error),
     });
   }
@@ -65,7 +64,7 @@ export class GroupOrderPageComponent implements OnInit {
 
     this.submitting.set(true);
     this.submitErrorMessage.set(null);
-    this.groupOrdersService.getStatus$(currentInvite.GroupReservationId).pipe(
+    this.groupOrdersService.getStatus$(currentInvite.groupReservationId).pipe(
       switchMap((status) => {
         this.groupStatus.set(status.status);
 
@@ -78,7 +77,7 @@ export class GroupOrderPageComponent implements OnInit {
           return of({ status: 'Closed' as const, message: 'The group pre-order is closed.' });
         }
 
-        return this.groupOrdersService.submit$(currentInvite.GroupReservationId, this.reservationId).pipe(
+        return this.groupOrdersService.submit$(currentInvite.groupReservationId, this.reservationId).pipe(
           map(() => ({ status: 'Submitted' as const, message: 'Group pre-order was sent to the restaurant.' })),
         );
       }),

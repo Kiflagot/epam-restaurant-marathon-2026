@@ -10,10 +10,10 @@
     <header class="reservation-header">
       <div class="heading-row"><h1>Group Pre-Order</h1><span class="status-badge">{{ statusLabel() }}</span></div>
       <div class="reservation-details" aria-label="Reservation details">
-        <p class="detail"><span class="detail-icon" aria-hidden="true">⌖</span><span>{{ reservation.LocationAddress }}</span></p>
-        <p class="detail"><span class="detail-icon" aria-hidden="true">▣</span><span>{{ reservation.StartTime | date: 'MMM d, y' }}</span></p>
-        <p class="detail"><span class="detail-icon" aria-hidden="true">◷</span><span>{{ reservation.StartTime | date: 'h:mm a' }} – {{ reservation.EndTime | date: 'h:mm a' }}</span></p>
-        <p class="detail"><span class="detail-icon" aria-hidden="true">♙</span><span>{{ participants().length }} of {{ reservation.MaxGuestCount }} guests</span></p>
+        <p class="detail"><span class="detail-icon" aria-hidden="true">⌖</span><span>{{ reservation.locationAddress }}</span></p>
+        <p class="detail"><span class="detail-icon" aria-hidden="true">▣</span><span>{{ reservation.startTime | date: 'MMM d, y' }}</span></p>
+        <p class="detail"><span class="detail-icon" aria-hidden="true">◷</span><span>{{ reservation.startTime | date: 'h:mm a' }} – {{ reservation.endTime | date: 'h:mm a' }}</span></p>
+        <p class="detail"><span class="detail-icon" aria-hidden="true">♙</span><span>{{ participants().length }} of {{ reservation.guestCount }} guests</span></p>
       </div>
     </header>
     @if (hasUnsubmittedParticipants()) { <p class="pending-notice" role="status">{{ unsubmittedCount() }} participant{{ unsubmittedCount() === 1 ? '' : 's' }} haven't submitted their cart yet — their dishes won't be included in the order</p> }
