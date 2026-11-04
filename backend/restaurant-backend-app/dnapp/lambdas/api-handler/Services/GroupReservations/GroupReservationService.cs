@@ -9,6 +9,7 @@ using APIHandler.Repositories.GuestSessions;
 using APIHandler.Repositories.Reservations;
 using APIHandler.Repositories.Tables;
 using APIHandler.Services.Auth;
+using APIHandler.Services.GuestSessions;
 using APIHandler.Services.Locations;
 using APIHandler.Services.Orders;
 using System;
@@ -25,7 +26,8 @@ public class GroupReservationService(
     IGuestSessionRepository guestSessionRepository,
     IUserService userService,
     ILocationService locationService,
-    IOrderService orderService) : IGroupReservationService
+    IOrderService orderService,
+    IGuestSessionService guestSessionService) : IGroupReservationService
 {
     private const string DefaultRestaurantName = "Green & Tasty";
 
@@ -90,7 +92,8 @@ public class GroupReservationService(
         if (group is not null)
             return;
 
-        await CreateGroupReservationAsync(reservationId);
+        GroupReservation createdGroupReservation = await CreateGroupReservationAsync(reservationId);
+        await guestSessionService.CreateGroupOwnerSessionAsync(userId, createdGroupReservation.GroupReservationId);
     }
 
     public async Task UpdateGroupReservationStatusAsync(string groupReservationId, GroupReservationStatus status)

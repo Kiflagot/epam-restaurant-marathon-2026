@@ -8,6 +8,7 @@ using APIHandler.Repositories.Reservations;
 using APIHandler.Repositories.Tables;
 using APIHandler.Services.Auth;
 using APIHandler.Services.GroupReservations;
+using APIHandler.Services.GuestSessions;
 using APIHandler.Services.Locations;
 using APIHandler.Services.Orders;
 using AutoFixture.Xunit2;
@@ -24,6 +25,7 @@ public class GroupReservationServiceTests
     private readonly Mock<IUserService> _userServiceMock = new();
     private readonly Mock<ILocationService> _locationServiceMock = new();
     private readonly Mock<IOrderService> _orderServiceMock = new();
+    private readonly Mock<IGuestSessionService> _guestSessionServiceMock = new();
 
     private readonly GroupReservationService _service;
 
@@ -36,7 +38,8 @@ public class GroupReservationServiceTests
             _guestSessionRepositoryMock.Object,
             _userServiceMock.Object,
             _locationServiceMock.Object,
-            _orderServiceMock.Object);
+            _orderServiceMock.Object,
+            _guestSessionServiceMock.Object);
     }
 
     [Theory]
@@ -147,6 +150,23 @@ public class GroupReservationServiceTests
         _guestSessionRepositoryMock.Verify(
             r => r.CountByGroupReservationId(groupReservation.GroupReservationId),
             Times.Never);
+    }
+
+    [Theory]
+    [AutoData]
+    public async Task CreateGroupReservationIfDoesNotExistAsync_CreatesOwnerSession(
+        string userId,
+        string reservationId)
+    {
+        _groupReservationRepositoryMock
+            .Setup(r => r.GetByReservationIdAsync(reservationId))
+            .ReturnsAsync((GroupReservation?)null);
+
+        await _service.CreateGroupReservationIfDoesNotExistAsync(userId, reservationId);
+
+        _guestSessionServiceMock.Verify(
+            s => s.CreateGroupOwnerSessionAsync(userId, It.IsAny<string>()),
+            Times.Once);
     }
 
     [Theory]

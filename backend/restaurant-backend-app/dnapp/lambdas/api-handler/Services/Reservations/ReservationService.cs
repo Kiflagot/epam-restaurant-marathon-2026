@@ -11,6 +11,7 @@ using APIHandler.Repositories.Auth;
 using APIHandler.Repositories.Locations;
 using APIHandler.Repositories.Reservations;
 using APIHandler.Services.GroupReservations;
+using APIHandler.Services.GuestSessions;
 using APIHandler.Services.Locations;
 using APIHandler.Services.Orders;
 using APIHandler.Services.Waiters;
@@ -31,6 +32,7 @@ public class ReservationService : IReservationService
     private readonly IOrderService _orderService;
 
     private readonly IGroupReservationService _groupReservationService;
+    private readonly IGuestSessionService _guestSessionService;
 
     public ReservationService(
         IReservationRepository reservationRepository,
@@ -39,7 +41,8 @@ public class ReservationService : IReservationService
         IWaiterService waiterService,
         ILocationService locationService,
         IOrderService orderService,
-        IGroupReservationService groupReservationService)
+        IGroupReservationService groupReservationService,
+        IGuestSessionService guestSessionService)
     {
         _reservationRepository = reservationRepository ?? throw new ArgumentNullException(nameof(reservationRepository));
         _locationRepository = locationRepository ?? throw new ArgumentNullException(nameof(locationRepository));
@@ -48,6 +51,7 @@ public class ReservationService : IReservationService
         _locationService = locationService ?? throw new ArgumentNullException(nameof(locationService));
         _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
         _groupReservationService = groupReservationService ?? throw new ArgumentNullException(nameof(groupReservationService));
+        _guestSessionService = guestSessionService ?? throw new ArgumentNullException(nameof(guestSessionService));
     }
 
     public async Task<ReservationResponse> CreateReservationAsync(CreateReservationRequest request, string callerId, bool isWaiter, ILambdaLogger logger)
@@ -70,7 +74,12 @@ public class ReservationService : IReservationService
         await UpdateWaiterReservationsAsync(reservation.WaiterId, reservation.Id);
 
         if (request.GuestCount >= 2)
-            await _groupReservationService.CreateGroupReservationAsync(reservation.Id);
+        {
+            var groupReservation = await _groupReservationService.CreateGroupReservationAsync(reservation.Id);
+
+            if (reservation.CustomerId is not null)
+                await _guestSessionService.CreateGroupOwnerSessionAsync(reservation.CustomerId, groupReservation.GroupReservationId);
+        }
 
         return ReservationMapper.ToReservationResponse(reservation, location.Address);
     }

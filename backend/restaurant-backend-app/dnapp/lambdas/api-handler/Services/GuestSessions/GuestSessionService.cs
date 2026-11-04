@@ -360,6 +360,12 @@ public class GuestSessionService(
 
     public async Task CreateGroupOwnerSessionAsync(string userId, string groupReservationId)
     {
+        var existingOwnerSession = (await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId))
+            .FirstOrDefault(session => session.IsOwnerSession);
+
+        if (existingOwnerSession is not null)
+            return;
+
         var session = new GuestSession()
         {
             Id = Guid.NewGuid().ToString(),

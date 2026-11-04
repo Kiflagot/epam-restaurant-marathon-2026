@@ -807,6 +807,29 @@ public class GuestSessionServiceTests
     }
 
     [Fact]
+    public async Task CreateGroupOwnerSessionAsync_WhenOwnerSessionExists_DoesNotCreateDuplicate()
+    {
+        const string groupReservationId = "group-reservation-id";
+
+        _mockGuestSessionRepository
+            .Setup(r => r.GetAllByGroupReservationIdAsync(groupReservationId))
+            .ReturnsAsync([
+                new GuestSession
+                {
+                    Id = "existing-owner-session",
+                    GroupReservationId = groupReservationId,
+                    GuestName = "Owner",
+                    IsOwnerSession = true,
+                    Dishes = []
+                }
+            ]);
+
+        await _guestSessionService.CreateGroupOwnerSessionAsync("owner-user-id", groupReservationId);
+
+        _mockGuestSessionRepository.Verify(r => r.SaveAsync(It.IsAny<GuestSession>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetOwnerGuestSessionIdAsync_MissingReservation_ThrowsReservationNotFoundException()
     {
         _mockReservationRepository
